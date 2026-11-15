@@ -10,3 +10,4 @@ Select **number 1 to 5** for a different look.
 
 The **Name of a place** can be typed in on the left.
 
+**Navigating on the map** is possible after** clicking on stop** which stops **Panning** as well as **Zoom**
