@@ -1,5 +1,5 @@
 # transitvisuals
-Different style of viewing travic.app. Just for decoration ( Screensaver or Wallpaper via lively wallpaper e.g.). Based on their railroadmmaps. 
+**Webpage** for viewing  railroadmmap from **travic.app** in 5 different styles .  Decorative  Styles for a **screensaver** via [web-page-screensaver](https://github.com/janemiceli/web-page-screensaver-windows) or **wallpaper** via [lovely walppaer](livelywallpaper.app). 
 
 Find it here: 
 https://clicktricks.github.io/transitvisuals/?ui=false
