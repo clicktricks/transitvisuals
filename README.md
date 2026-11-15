@@ -4,4 +4,9 @@ A **Webpage** for viewing  railroadmaps from **travic.app** in 5 different style
 Find it here: 
 [transitvisuals](https://clicktricks.github.io/transitvisuals/?ui=true)
 
-Pressing H turns the UI on and off
+Pressing **H** turns the UI on and off.
+
+Select **number 1 to 5** for a different look.
+
+The **Name of a place** can be typed in on the left.
+
