@@ -36,6 +36,16 @@ const MODE_KIND: Record<string, Kind> = {
   RAIL: "train", HIGHSPEED_RAIL: "train", LONG_DISTANCE: "train", NIGHT_RAIL: "train", REGIONAL_RAIL: "train",
   SUBURBAN: "sbahn", SUBWAY: "sbahn", TRAM: "tram", BUS: "bus", COACH: "bus",
 };
+// Farbschemata nur für die Fahrzeugpunkte; Index 0 = Farben des Karten-Presets
+const DOT_SCHEMES: { name: string; c: Record<Kind, string> | null }[] = [
+  { name: "Default", c: null },
+  { name: "Neon", c: { train: "#00f0ff", sbahn: "#ff2bd6", tram: "#faff00", bus: "#39ff14" } },
+  { name: "Classic", c: { train: "#ff2d2d", sbahn: "#1fcf5a", tram: "#ffd400", bus: "#b366ff" } },
+  { name: "Warm", c: { train: "#ff3b30", sbahn: "#ff9500", tram: "#ffcc00", bus: "#fff1d6" } },
+  { name: "Cool", c: { train: "#5ac8fa", sbahn: "#7d7aff", tram: "#64e6ff", bus: "#c9d6ff" } },
+  { name: "White", c: { train: "#ffffff", sbahn: "#ffffff", tram: "#ffffff", bus: "#ffffff" } },
+];
+const dotCol = (p: Preset, d: number, k: Kind) => DOT_SCHEMES[d]?.c?.[k] ?? p[k];
 // Streckennetz-Layer (aus den Live-Routen) – Farben je Fahrzeugart aus dem Preset
 // Leuchtebenen der Karte (Original-Look) – nur per ?mapglow=false abschaltbar
 const GLOW_IDS = ["road-artery-glow", "rail-glow", "transit-glow"];
@@ -63,12 +73,13 @@ export default function TransitScreensaver() {
   const [mode, setMode] = useState<Mode>(params.get("zoom") === "false" ? "pan" : "breath");
   const [speed, setSpeed] = useState(+(params.get("speed") || 1) || 1);
   const [paused, setPaused] = useState(false);
+  const [dots, setDots] = useState(() => Math.min(DOT_SCHEMES.length - 1, Math.max(0, Math.floor(+(params.get("dots") || 0)) || 0))); // Punkte-Farbschema (0 = wie Karte)
   const [glowMode, setGlowMode] = useState(() => { const g = params.get("glow"); return g === "full" ? 2 : g === "soft" || g === "true" ? 1 : 0; }); // 0 aus (Standard), 1 soft, 2 voll
   const [live, setLive] = useState(params.get("live") !== "false"), [liveSt, setLiveSt] = useState<"load" | "ok" | "err">("load");
   const [ui, setUi] = useState(true), [uiOn, setUiOn] = useState(params.get("ui") !== "false");
   const [query, setQuery] = useState(""), [city, setCity] = useState(params.get("city") || "Berlin"), [err, setErr] = useState("");
-  const S = useRef({ mode, speed, paused, preset, live, glow: glowMode, zoomOff: 0, center: CITIES["Berlin"]! as [number, number], t: 0, refetch: null as null | (() => void) });
-  S.current.mode = mode; S.current.speed = speed; S.current.paused = paused; S.current.preset = preset; S.current.live = live; S.current.glow = glowMode;
+  const S = useRef({ mode, speed, paused, preset, live, glow: glowMode, dots, zoomOff: 0, center: CITIES["Berlin"]! as [number, number], t: 0, refetch: null as null | (() => void) });
+  S.current.mode = mode; S.current.speed = speed; S.current.paused = paused; S.current.preset = preset; S.current.live = live; S.current.glow = glowMode; S.current.dots = dots;
   const mapRef = useRef<any>(null);
   const [sel, setSel] = useState<Info | null>(null);
   const selRef = useRef<Veh | null>(null), cardRef = useRef<HTMLDivElement>(null);
@@ -254,7 +265,7 @@ export default function TransitScreensaver() {
           vis++; if (vis > MAXV) break;
           hx[hn] = x; hy[hn] = y; hv[hn] = v; hn++;
           const { x: tx, y: ty } = map.project(at(v.l, v.d - v.dir * v.v * (v.l.kind === "bus" ? 4 : 7)));
-          const col = st.preset[v.l.kind];
+          const col = dotCol(st.preset, st.dots, v.l.kind);
           const pulse = 0.75 + 0.25 * Math.sin(t * 3 + v.ph);
           const grd = g.createLinearGradient(tx, ty, x, y); grd.addColorStop(0, "transparent"); grd.addColorStop(1, col);
           g.strokeStyle = grd; g.lineWidth = v.l.kind === "bus" ? sz * 0.8 : sz * 1.3; g.lineCap = "round";
@@ -304,6 +315,7 @@ export default function TransitScreensaver() {
       else if (e.key.toLowerCase() === "f") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
       else if (e.key.toLowerCase() === "h") setUiOn((u) => !u);
       else if (e.key === "Escape") { selRef.current = null; setSel(null); }
+      else if (e.key.toLowerCase() === "d") setDots((d) => (d + 1) % DOT_SCHEMES.length);
       else if (e.key === "0") S.current.zoomOff = 0;
       else if (e.key.toLowerCase() === "g") setGlowMode((m) => (m + 1) % 3);
       wake();
@@ -313,8 +325,8 @@ export default function TransitScreensaver() {
     return () => { removeEventListener("mousemove", wake); removeEventListener("keydown", key); clearTimeout(to); };
   }, []);
 
-  const show = ui && uiOn, a = preset.accent;
-  const btn = (on: boolean) => ({ borderColor: a + (on ? "" : "55"), color: on ? preset.bg : a, background: on ? a : "transparent" });
+  const show = ui && uiOn, a = preset.accent, fg = "#ffffff"; // fg = UI-Farbe (weiß), a = Preset-Akzent nur fürs Gitter
+  const btn = (on: boolean) => ({ borderColor: fg + (on ? "" : "55"), color: on ? preset.bg : fg, background: on ? fg : "transparent" });
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ background: preset.bg, cursor: show ? "default" : "none" }}>
       <div className="absolute inset-0"><div ref={mapEl} className="h-full w-full" /></div>
@@ -323,38 +335,42 @@ export default function TransitScreensaver() {
         backgroundImage: `linear-gradient(${a}22 1px, transparent 1px), linear-gradient(90deg, ${a}22 1px, transparent 1px), linear-gradient(${a}0c 1px, transparent 1px), linear-gradient(90deg, ${a}0c 1px, transparent 1px)`,
         backgroundSize: "160px 160px,160px 160px,32px 32px,32px 32px" }} />}
       <div className="pointer-events-none absolute inset-0" style={{ background: "repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.75))" }} />
-      <div className="pointer-events-none absolute bottom-6 left-8 font-mono text-[10px] uppercase tracking-[0.35em]" style={{ color: a, opacity: 0.55 }}>
+      <div className="pointer-events-none absolute bottom-6 left-8 font-mono text-[10px] uppercase tracking-[0.35em]" style={{ color: fg, opacity: 0.55 }}>
         {city} · {preset.name} {live ? (liveSt === "ok" ? "· LIVE" : liveSt === "err" ? "· LIVE OFFLINE – SIMULATION" : "· LIVE LÄDT…") : "· SIMULATION"} {paused && "· PAUSED"}
       </div>
       {sel && (
         <div ref={cardRef} className="pointer-events-none absolute left-0 top-0 z-10 w-64 border px-3 py-2 font-mono text-xs uppercase tracking-wider"
-          style={{ display: "none", borderColor: a + "88", background: preset.bg + "ee", color: a }}>
-          <div className="mb-1 flex items-baseline justify-between gap-2"><span className="text-sm font-bold" style={{ color: preset[sel.kind] }}>{sel.line || KIND_NAME[sel.kind]}</span><span className="opacity-60">{KIND_NAME[sel.kind]}</span></div>
+          style={{ display: "none", borderColor: fg + "88", background: preset.bg + "ee", color: fg }}>
+          <div className="mb-1 flex items-baseline justify-between gap-2"><span className="text-sm font-bold" style={{ color: dotCol(preset, dots, sel.kind) }}>{sel.line || KIND_NAME[sel.kind]}</span><span className="opacity-60">{KIND_NAME[sel.kind]}</span></div>
           <div className="opacity-90">{sel.from} → {sel.to}</div>
           <div className="mt-1 opacity-70">an {new Date(sel.arr).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} · {sel.rt ? (sel.delay > 0 ? `+${sel.delay} min` : sel.delay < 0 ? `${sel.delay} min` : "pünktlich") : "Fahrplan"}</div>
         </div>
       )}
       <div className="absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-4 p-6 font-mono text-xs transition-opacity duration-700"
-        style={{ opacity: show ? 1 : 0, pointerEvents: show ? "auto" : "none", color: a }}>
+        style={{ opacity: show ? 1 : 0, pointerEvents: show ? "auto" : "none", color: fg }}>
         <form onSubmit={(e) => { e.preventDefault(); if (query.trim()) focus(query.trim()); }} className="flex flex-col gap-2">
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="› STADT / REGION SUCHEN"
             className="w-72 border bg-transparent px-3 py-2 uppercase tracking-widest outline-none placeholder:opacity-50"
-            style={{ borderColor: a + "66", color: a, background: preset.bg + "e6" }} />
-          <div className="flex flex-wrap gap-1">
+            style={{ borderColor: fg + "66", color: fg, background: preset.bg + "e6" }} />
+          <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 4, width: 200 }}>
             {Object.keys(CITIES).map((c) => <button type="button" key={c} onClick={() => focus(c)} className="border px-2 py-1 uppercase" style={btn(city === c)}>{c}</button>)}
           </div>
           {err && <span>{err}</span>}
         </form>
-        <div className="flex flex-col items-end gap-2" style={{ background: preset.bg + "aa" }}>
-          <div className="flex gap-1">{PRESETS.map((p) => <button key={p.id} title={p.name} onClick={() => setPreset(p)} className="border px-3 py-1" style={btn(p.id === preset.id)}>{p.id}</button>)}</div>
-          <div className="flex gap-1">{(["breath", "pan", "still"] as Mode[]).map((m) => <button key={m} onClick={() => setMode(m)} className="border px-2 py-1 uppercase" style={btn(mode === m)}>{{ breath: "Zoom", pan: "Pan", still: "Stop" }[m]}</button>)}
-            <button onClick={() => setPaused(!paused)} className="border px-2 py-1 uppercase" style={btn(paused)}>Pause</button>
-            <button onClick={() => setLive(!live)} className="border px-2 py-1 uppercase" style={btn(live)}>Live</button>
-            <button onClick={() => setGlowMode((m) => (m + 1) % 3)} className="border px-2 py-1 uppercase" style={btn(glowMode > 0)}>Glow {["aus", "soft", "voll"][glowMode]}</button></div>
-          <label className="flex items-center gap-2 uppercase">Tempo {speed.toFixed(1)}×
-            <input type="range" min={0.2} max={4} step={0.1} value={speed} onChange={(e) => setSpeed(+e.target.value)} style={{ accentColor: a }} /></label>
-          <span className="opacity-50">1–5 PRESET · SPACE PAUSE · F VOLLBILD · G GLOW · H UI · RAD ZOOM · 0 RESET</span>
-        </div>
+      </div>
+      <div className="font-mono transition-opacity duration-700"
+        style={{ position: "absolute", bottom: 8, right: 8, display: "grid", gridTemplateColumns: "auto auto", alignItems: "center", justifyItems: "start", columnGap: 8, rowGap: 4, padding: 8, fontSize: 10, opacity: show ? 1 : 0, pointerEvents: show ? "auto" : "none", color: fg, background: preset.bg + "aa" }}>
+          <span style={{ gridColumn: "1 / -1", fontWeight: 700, fontSize: 11, letterSpacing: "0.12em" }}>CONTROLS</span>
+          <span /><div className="flex gap-1">{(["breath", "pan", "still"] as Mode[]).map((m) => <button key={m} onClick={() => setMode(m)} className="border uppercase" style={{ ...btn(mode === m), padding: "2px 6px" }}>{{ breath: "Zoom", pan: "Pan", still: "Stop" }[m]}</button>)}
+            <button onClick={() => setPaused(!paused)} className="border uppercase" style={{ ...btn(paused), padding: "2px 6px" }}>Pause</button>
+            <button onClick={() => setLive(!live)} className="border uppercase" style={{ ...btn(live), padding: "2px 6px" }}>Live</button>
+            <button onClick={() => setGlowMode((m) => (m + 1) % 3)} className="border uppercase" style={{ ...btn(glowMode > 0), padding: "2px 6px" }}>Glow {["off", "soft", "full"][glowMode]}</button></div>
+          <span /><label className="flex items-center gap-2 uppercase">Tempo {speed.toFixed(1)}×
+            <input type="range" min={0.2} max={4} step={0.1} value={speed} onChange={(e) => setSpeed(+e.target.value)} style={{ accentColor: fg }} /></label>
+          <span style={{ gridColumn: "1 / -1", fontWeight: 700, fontSize: 11, letterSpacing: "0.12em", marginTop: 6 }}>COLORS</span>
+          <span className="opacity-60">MAPS</span><div style={{ display: "flex", gap: 4, justifySelf: "stretch" }}>{PRESETS.map((p) => <button key={p.id} title={p.name} onClick={() => setPreset(p)} className="border" style={{ ...btn(p.id === preset.id), flex: 1, padding: "4px 0" }}>{p.id}</button>)}</div>
+          <span className="opacity-60">DOTS</span><div className="flex gap-1">{DOT_SCHEMES.map((d, i) => <button key={d.name} onClick={() => setDots(i)} className="border uppercase" style={{ ...btn(dots === i), padding: "2px 6px" }}>{d.name}</button>)}</div>
+          <span style={{ gridColumn: "1 / -1", width: 0, minWidth: "100%", opacity: 0.5 }}>1–5 MAPS · SPACE PAUSE · F FULLSCREEN · G GLOW · D DOTS · H UI · WHEEL ZOOM · 0 RESET</span>
       </div>
     </div>
   );
