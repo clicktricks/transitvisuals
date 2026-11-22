@@ -22,7 +22,8 @@ export const PRESETS: Preset[] = [
 ];
 export const CITIES: Record<string, [number, number]> = {
   Berlin: [13.405, 52.52], Tokyo: [139.767, 35.681], London: [-0.1276, 51.5072], Paris: [2.3522, 48.8566],
-  "New York": [-73.9857, 40.7484], "Zürich": [8.5402, 47.3779], Hamburg: [9.9937, 53.5511],
+  "New York": [-73.9857, 40.7484], Barcelona: [2.1734, 41.3851], Hamburg: [9.9937, 53.5511],
+  Frankfurt: [8.6821, 50.1109], "München": [11.582, 48.1351],
 };
 const w = (a: number, b: number) => ["interpolate", ["exponential", 1.6], ["zoom"], 10, a, 16, b];
 export function paintFor(p: Preset): Record<string, Record<string, unknown>> {
